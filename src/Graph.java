@@ -17,7 +17,13 @@ class Graph {
 	int skippedTile; // Tile to be skipped
 	static ArrayList<Integer> adjListArray[]; // Adjacency list which contains the edges
 	boolean lockOn;
-	private static HashMap<Integer, int[]> map; 
+	static HashMap<Integer, int[]> map; 
+	/*
+	 * This variable is used inside the calculateChildrenState function. To avoid an infinite loop,
+	 * child state cannot contain its parent node as a child. Every time the calculateChildrenState is ran
+	 * it should use this variable to know which neighbor to skip.
+	 */
+	private static int skipState = -1;
 	
 	// For this graph implementation, vertices are represented by tile objects
 	Graph (int V) {
@@ -68,9 +74,6 @@ class Graph {
 		State start = new State(this.tiles);
 		// Set initial node's g cost to 0
 		start.setGCost(0);
-		// Get the H cost of the board currently/
-		int hCost = calculateHCost(this.tiles);
-		start.setHCost(hCost);
 		
 		open.add(start);
 		
@@ -79,6 +82,7 @@ class Graph {
 		while(true) {
 			// Find the open node with the lowest f cost
 			int lowestIndex = lowestFCost(open);
+			System.out.println("Lowest Index: " + lowestIndex);
 			State current = open.get(lowestIndex);
 			
 			// Remove the current node from the open list and add it to the closed list
@@ -99,12 +103,10 @@ class Graph {
 					continue;
 				}
 				// If this is not already in the open node list, add it
-				if (open.contains(children.get(i))) {
+				// Also check whether the new path is shorter to that node (smaller gCost)
+				if (!open.contains(children.get(i)) || (children.get(i).getGCost() > current.getGCost() + 1)) {
 					// Set the g cost of this child node
 					children.get(i).setGCost(current.getGCost() + 1);
-					// Set the h cost of this child node.
-					hCost = calculateHCost(children.get(i).getTiles());
-					children.get(i).setHCost(hCost);
 					
 					// Set the parent to the current node
 					children.get(i).setParent(current);
@@ -139,13 +141,21 @@ class Graph {
 			if (t[i].getName().compareTo("Ignored tile") == 0) {
 				ignoredIndex = i;
 				System.out.println("Ignored Index: " + ignoredIndex);
+				break;
 			}
 		}
 		
-		Tile[][] p = new Tile[adjListArray[ignoredIndex].size()][t.length];
-		// Initialize n copies of the original tiles
+		// Create new copies of the current tiles state to modify for the new states.
+		Tile[][] p = new Tile[adjListArray[ignoredIndex].size()][];
 		for (int i = 0; i < p.length; i++) {
-			p[i] = t;
+			p[i] = new Tile[t.length];
+			for (int j = 0; j < p[i].length; j++) {
+				// Use the copy constructor to create a new tile with the same information.
+				Tile temp = new Tile(t[j]);
+				if (temp != null) {
+					p[i][j] = temp;
+				}
+			}
 		}
 		
 		// Print p
@@ -158,16 +168,22 @@ class Graph {
 		 */
 		int neighborIndex;
 		for (int i = 0; i < p.length; i++) {
-			for (int j = 0; j < p[i].length; j++) {
-				// Get this neighbor's index in the original list
-				neighborIndex = adjListArray[ignoredIndex].get(i);
-				p[i][ignoredIndex] = t[neighborIndex];
-				p[i][neighborIndex] = t[ignoredIndex];
-				
-			}
-			// Create a new state based on this order list of tiles
-			State temp = new State(p[i]);
-			result.add(temp);
+			neighborIndex = adjListArray[ignoredIndex].get(i);
+			
+			// Find whether this neighbor belongs to the parent state
+			//if (s.getParent() == null || (s.getParent() != null && s.getParentSkipped() != neighborIndex)) {
+				Tile ignoredCopy = new Tile(p[i][ignoredIndex]);
+				Tile neighborCopy = new Tile(p[i][neighborIndex]);
+				//for (int j = 0; j < p[i].length; j++) {
+					// Get this neighbor's index in the original list
+					p[i][ignoredIndex] = neighborCopy;
+					p[i][neighborIndex] = ignoredCopy;
+				//}
+				// Create a new state based on this order list of tiles
+				result.add(new State(p[i]));
+				// Print
+				Graph.printVertices(result.get(i).getTiles());
+			//}
 		}
 		
 		return result;
@@ -207,25 +223,7 @@ class Graph {
 			}
 		}
 	}
-	public static int calculateHCost(Tile[] t) {
-		int hTotal = 0;
-		
-		for (int i = 0; i < t.length; i++) {
-			// Test if you're already at the h designated spot
-			if (i == t[i].getIndex()) {
-				// Nothing is added to the hTotal
-				System.out.println("Tile " + t[i].getName() + " at i : " + i + " the h cost is " + 0);
-			} else {
-				int horizontalDiff = Math.abs(map.get(i)[0] - map.get(t[i].getIndex())[0]);
-				int verticalDiff = Math.abs(map.get(i)[1] - map.get(t[i].getIndex())[1]); 
-				int sum = horizontalDiff + verticalDiff;
-				System.out.println("Tile " + t[i].getName() + " at i : " + i + " the h cost is " + sum);
-				hTotal += horizontalDiff + verticalDiff;
-			}
-		}
-		
-		return hTotal;
-	}
+
 	// Creates vertices
 	public void createVertexes () {
 		String[] imageNames = {"TL.png", "TC.png", "TR.png",
@@ -460,6 +458,10 @@ class Tile{
 	int bound;	// Bound for animation
 	private char direction;	// The direction represented as in 'n' for North
 	
+	// Copy constructor
+	public Tile (Tile t) {
+		this(t.getName(), new ImageIcon("Tiles/" + t.getName()), t.x, t.y, t.getIndex());
+	}
 	public Tile (String n, ImageIcon i, int hor, int ver, int tIndex) {
 		x = hor;
 		y = ver;

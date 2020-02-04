@@ -142,16 +142,19 @@ class Window extends JFrame implements KeyListener{
 	}
 	@Override
 	public void keyReleased(KeyEvent e) {
-		// If the user presses 's', the game should self-resolve
+		 //If the user presses 's', the game should self-resolve
 		System.out.println("Key was pressed!: " + e);
-		//graph.aStar();
 		ArrayList<State> children = graph.calculateChildrenStates();
 		
 		for (State s : children)
 		{
 			System.out.println("|--------------------------|");
-			Graph.printVertices(s.getTiles());
+			s.printState();
 		}
+//		System.out.println("|--------------------------|");
+//		System.out.println("Result from A star");
+//		State s = graph.aStar();
+//		Graph.printVertices(s.getTiles());
 	}
 }
 
